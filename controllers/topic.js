@@ -1,5 +1,5 @@
 exports.showCreate = (req, res) => {
-  res.send('showCreate')
+  res.render('topic/create.html')
 }
 
 exports.create = (req, res) => {
