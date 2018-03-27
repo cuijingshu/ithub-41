@@ -1,12 +1,56 @@
 const moment = require('moment')
 const connection = require('./db-helper.js')
+const User = require('../models/user')
+const md5 = require('md5')
 
 exports.showSignin = (req, res) => {
   res.render('signin.html')
 }
 
 exports.signin = (req, res) => {
-  res.send('signin')
+  // 1. 获取表单数据
+  // 2. 数据验证
+  //    普通数据校验
+  //    业务数据校验
+  // 3. 验证通过，保持登陆状态
+  // 4. 发送成功响应
+  const body = req.body
+
+  // TODO: 基本数据校验
+
+  User.getByEmail(body.email, (err, user) => {
+    if (err) {
+      return res.send({
+        code: 500,
+        message: err.message
+      })
+    }
+
+    // 如果用户不存在，告诉客户端
+    if (!user) {
+      return res.send({
+        code: 1,
+        message: '用户不存在'
+      })
+    }
+
+    // 如果用户存在了，则校验密码
+    if (md5(body.password) !== user.password) {
+      return res.send({
+        code: 2,
+        message: '密码不正确'
+      })
+    }
+
+    // 代码执行到这里，就意味着验证通过，可以登陆了
+    
+    // TODO：保持登陆状态
+
+    res.send({
+      code: 200,
+      message: '恭喜你，登陆成功'
+    })
+  })
 }
 
 exports.showSignup = (req, res) => {
@@ -24,16 +68,16 @@ exports.signup = (req, res) => {
   //    这里校验邮箱和昵称是否被占用
 
   // 校验邮箱是否被占用
-  connection.query(
-    'SELECT * FROM `users` WHERE `email`=?', [body.email],
-    (err, results) => {
+  User.getByEmail(
+    body.email,
+    (err, user) => {
       if (err) {
         return res.send({
           code: 500,
           message: err.message // 把错误对象中的错误消息发送给客户端
         })
       }
-      if (results[0]) {
+      if (user) {
         return res.send({
           code: 1,
           message: '邮箱已被占用了'
@@ -41,10 +85,9 @@ exports.signup = (req, res) => {
       }
 
       // 校验昵称是否存在
-      connection.query(
-        'SELECT * FROM `users` WHERE `nickname`=?',
-        [body.nickname],
-        (err, results) => {
+      User.getByNickname(
+        body.nickname,
+        (err, user) => {
           if (err) {
             return res.send({
               code: 500,
@@ -52,7 +95,7 @@ exports.signup = (req, res) => {
             })
           }
 
-          if (results[0]) {
+          if (user) {
             return res.send({
               code: 2,
               message: '昵称已被占用'
@@ -68,10 +111,9 @@ exports.signup = (req, res) => {
           // moment() 用来获取当前时间
           // format() 方法用来格式化输出
           body.createdAt = moment().format('YYYY-MM-DD HH:mm:ss')
+          body.password = md5(body.password)
 
-          const sqlStr = 'INSERT INTO `users` SET ?'
-
-          connection.query(sqlStr, body, (err, results) => {
+          User.create(body, (err, results) => {
             if (err) {
               // 服务器异常，通知客户端
               return res.send({

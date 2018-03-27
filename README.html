@@ -1045,11 +1045,6 @@ app.listen(3000, () =&gt; console.log('app listening on port 3000!'))
 <pre><code class="javascript">// 0. 加载 express
 const express = require('express')
 
-// 加载所有的处理函数模块
-const index = require('./controllers/index')
-const topic = require('./controllers/topic')
-const user = require('./controllers/user')
-
 // 1. 调用 express.Router() 创建一个路由实例
 const router = express.Router()
 
@@ -1192,14 +1187,7 @@ router
 <h2 id="_4"><a name="user-content-_4" href="#_4" class="headeranchor-link" aria-hidden="true"><span class="headeranchor"></span></a>创建控制器（处理函数）模块</h2>
 <ul>
 <li>创建 <code>controllers</code> 目录</li>
-<li>
-<p>在 <code>controllers</code> 目录中根据业务划分创建处理函数模块</p>
-</li>
-<li>
-<p>index.js</p>
-</li>
-<li>user.js</li>
-<li>topic.js</li>
+<li>在 <code>controllers</code> 目录中根据业务划分创建处理函数模块</li>
 </ul>
 <p><code>index.js</code> 文件：</p>
 <pre><code class="javascript">exports.showIndex = (req, res) =&gt; {
@@ -1257,6 +1245,11 @@ exports.delete = (req, res) =&gt; {
 
 <p>然后访问几个路由规则测试一下。</p>
 <h2 id="_5"><a name="user-content-_5" href="#_5" class="headeranchor-link" aria-hidden="true"><span class="headeranchor"></span></a>拷贝静态资源到项目中</h2>
+<p>下载项目需要的静态资源：</p>
+<pre><code class="shell">git clone https://github.com/lipengzhou/itcast-resource.git
+</code></pre>
+
+<p>把下面的目录拷贝到项目中：</p>
 <ul>
 <li>public/</li>
 <li>views/</li>
