@@ -362,3 +362,438 @@ exports.signup = (req, res) => {
   )
 }
 ```
+
+## 提取 `db-helper.js` 文件模块
+
+```javascript
+const mysql = require('mysql')
+
+const connection = mysql.createConnection({
+  host: 'localhost', // 要连接的主机名
+  user: 'root', // 要连接的数据库的用户名
+  password: '123456', // 数据库密码
+  database: 'ithub' // 数据库
+})
+
+module.exports = connection
+```
+
+## 划分 MVC
+
+1. 在项目根目录下创建 `models` 目录
+2. 在 `models` 目录中分别创建 `user.js`、`topic.js`、`comment.js` 等文件
+3. 把所有的数据库操作都封装到 Model 对应的业务模块中
+
+例如，`model/user.js`:
+
+```javascript
+// 我们把用户相关的数据库操作方法都封装到当前模块
+
+const db = require('../controllers/db-helper')
+
+exports.findAll = callback => {
+  const sqlStr = 'SELECT * FROM `users`'
+  db.query(sqlStr, (err, results) => {
+    if (err) {
+      return callback(err)
+    }
+    callback(null, results)
+  })
+}
+
+exports.getByEmail = (email, callback) => {
+  const sqlStr = 'SELECT * FROM `users` WHERE `email`=?'
+  db.query(
+    sqlStr,
+    [email],
+    (err, results) => {
+      if (err) {
+        return callback(err)
+      }
+      callback(null, results[0])
+    }
+  )
+}
+
+exports.getByNickname = (nickname, callback) => {
+  const sqlStr = 'SELECT * FROM `users` WHERE `nickname`=?'
+  db.query(
+    sqlStr,
+    [nickname],
+    (err, results) => {
+      if (err) {
+        return callback(err)
+      }
+      callback(null, results[0])
+    }
+  )
+}
+
+exports.create = (user, callback) => {
+  const sqlStr = 'INSERT INTO `users` SET ?'
+  db.query(
+    sqlStr,
+    user,
+    (err, results) => {
+      if (err) {
+        return callback(err)
+      }
+      callback(null, results)
+    }
+  )
+}
+```
+
+## 用户登陆（客户端处理）
+
+```javascript
+$('#signin_form').on('submit', handleSubmit)
+
+function handleSubmit (e) {
+  e.preventDefault()
+  var formData = $(this).serialize()
+  $.post('/signin', formData, function (data) {
+    switch(data.code) {
+      case 200:
+        window.location.href = '/'
+        break
+      case 1:
+        window.alert('用户名不存在')
+        break
+      case 2:
+        window.alert('密码不正确')
+        break
+    }
+  })
+}
+```
+
+## 用户登陆（没有存储登陆状态）
+
+```javascript
+exports.signin = (req, res) => {
+  const body = req.body
+
+  // TODO: 基本数据校验
+
+  User.getByEmail(body.email, (err, user) => {
+    if (err) {
+      return res.send({
+        code: 500,
+        message: err.message
+      })
+    }
+
+    // 如果用户不存在，告诉客户端
+    if (!user) {
+      return res.send({
+        code: 1,
+        message: '用户不存在'
+      })
+    }
+
+    // 如果用户存在了，则校验密码
+    if (md5(body.password) !== user.password) {
+      return res.send({
+        code: 2,
+        message: '密码不正确'
+      })
+    }
+
+    // TODO: 使用Session保存会话状态
+
+    // 代码执行到这里，就意味着验证通过，可以登陆了
+    res.send({
+      code: 200,
+      message: '恭喜你，登陆成功'
+    })
+  })
+}
+```
+
+## 用户登陆（使用 Session 存储登陆状态）
+
+express 需要安装配置 [express-session](https://github.com/expressjs/session) 插件才可以使用 Session 功能。
+
+安装：
+
+```shell
+npm i express-session
+```
+
+在 `app.js` 入口模块中配置：
+
+```javascript
+// ...
+const session = require('express-session')
+// ...
+
+// 配置 session
+// 只要配置了该插件，则在后续请求的任何处理函数中都可以使用 req.session 来访问或者设置 Session 数据了
+// req.session 就是一个对象，所以：
+//    读取 Session 数据：req.session.xxx
+//    保存 Session 数据：req.session.xxx = xxx
+app.use(session({
+  secret: 'keyboard cat', // 加密规则私钥，用来保证不同的丰巢快递柜的密码规则都是不一样的，
+  resave: false,
+  saveUninitialized: true // 是否在初始化的时候就给客户端发送一个 Cookie
+}))
+
+// ...
+```
+
+接下来找到 `controllers/user.js` 文件中，将 `sign` 方法修改为：
+
+```javascript
+// ...
+
+// TODO: 使用Session保存会话状态
+req.session.user = user
+
+// ...
+```
+
+## 根据用户登陆状态动态展示网页头部内容
+
+- 登陆前：显示登陆和注册按钮
+- 登陆后：显示个人中心和发起按钮
+
+找到 `controllers/index.js` 文件，将 `showIndex` 方法修改为：
+
+```javascript
+exports.showIndex = (req, res) => {
+  res.render('index.html', {
+    user: req.session.user // 把会话用户信息传递到模板中，模板就可以使用当前登陆的用户了
+  })
+}
+```
+
+然后找到 `views/_incldes/header.html` 文件进行条件判定渲染：
+
+```html
+<!-- 如果用户已登陆，则显示如下内容块 -->
+{{ if user }}
+<a class="btn btn-default navbar-btn" href="/topic/new">发起</a>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"><img width="20" height="20" src="../public/img/avatar-max-img.png" alt=""> <span class="caret"></span></a>
+  <ul class="dropdown-menu">
+    <li class="dropdown-current-user">
+      当前登录用户: {{ user.nickname }}
+    </li>
+    <li role="separator" class="divider"></li>
+    <li><a href="#">个人主页</a></li>
+    <li><a href="/settings/profile">设置</a></li>
+    <li><a href="/signout">退出</a></li>
+  </ul>
+</li>
+{{ else }}
+<!-- 如果用户未登录，则显示该内容块 -->
+<a class="btn btn-primary navbar-btn" href="/signin">登录</a>
+<a class="btn btn-success navbar-btn" href="/signup">注册</a>
+{{ /if }}
+```
+
+## 持久化存储 Session 数据到 MySQL 数据库
+
+默认Session是内存存储，服务器一旦重启就会导致Session数据丢失，用户就需要重新登陆。
+为了解决这个，我们只需要将 Session 数据持久化存储到数据库中就可以了。
+
+这里我们需要使用一个插件：[express-mysql-session](https://www.npmjs.com/package/express-mysql-session)。
+
+安装：
+
+```shell
+npm i express-mysql-session
+```
+
+在 `app.js` 中配置如下：
+
+```javascript
+const express = require('express')
+const bodyParser = require('body-parser')
+const router = require('./router')
+const session = require('express-session')
+const MySQLStore = require('express-mysql-session')(session)
+
+const options = {
+  host: 'localhost',
+  port: 3306,
+  user: 'root',
+  password: '123456',
+  database: 'ithub'
+}
+ 
+const sessionStore = new MySQLStore(options)
+
+const app = express()
+
+// 配置 Session 插件
+// 只要配置了该插件，则在后续请求的任何处理函数中都可以使用 req.session 来访问或者设置 Session 数据了
+app.use(session({
+  key: 'session_cookie_name',
+  secret: 'keyboard cat',
+  resave: false,
+  saveUninitialized: true,
+  store: sessionStore // 将 Session 数据存储到数据库中（默认是内存存储）
+}))
+
+// ...
+```
+
+## 用户退出
+
+```javascript
+exports.signout = (req, res) => {
+  // 1. 清除登陆状态
+  delete req.session.user
+  
+  // 2. 跳转到登录页
+  res.redirect('/signin')
+}
+```
+
+---
+
+## 发布话题
+
+- 处理前端页面
+- 处理服务端
+
+### 处理创建话题的客户端
+
+```javascript
+$('#form').on('submit', handleSubmit)
+
+function handleSubmit(e) {
+  e.preventDefault()
+  var formData = $(this).serialize()
+  $.post('/topic/create', formData, function (data) {
+    console.log(data)
+  })
+}
+```
+
+### 编写话题数据库操作模块 `models/topic/js`
+
+```javascript
+// 我们把话题相关的数据库操作方法都封装到当前模块
+const db = require('../controllers/db-helper')
+
+/**
+ * 获取所有话题列表
+ * @param  {Function} callback 回调函数
+ * @return {undefined}            没有返回值
+ */
+exports.findAll = callback => {
+  const sqlStr = 'SELECT * FROM `topics`'
+  db.query(sqlStr, (err, results) => {
+    if (err) {
+      return callback(err)
+    }
+    callback(null, results)
+  })
+}
+
+/**
+ * 插件一个话题
+ * @param  {Object}   topic    话题对象
+ * @param  {Function} callback 回调函数（返回值都是通过回调函数来接收）
+ * @return {undefined}            没有返回值
+ */
+exports.create = (topic, callback) => {
+  const sqlStr = 'INSERT INTO `topics` SET ?'
+  db.query(
+    sqlStr,
+    topic,
+    (err, results) => {
+      if (err) {
+        return callback(err)
+      }
+      callback(null, results)
+    }
+  )
+}
+
+/**
+ * 根据话题id更新话题内容
+ * @param  {Object}   topic    要更新话题对象
+ * @param  {Function} callback 回调函数
+ * @return {undefined}            没有返回值
+ */
+exports.updateById = (topic, callback) => {
+  const sqlStr = 'UPDATE `topics` SET `title`=?, `content`=? WHERE `id`=?'
+  db.query(
+    sqlStr,
+    [
+      topic.title,
+      topic.content,
+      topic.id
+    ],
+    (err, results) => {
+      if (err) {
+        return callback(err)
+      }
+      callback(null, results)
+    }
+  )
+}
+
+/**
+ * 根据话题id删除某个话题
+ * @param  {Number}   id       话题id
+ * @param  {Function} callback 回调函数
+ * @return {undefined}            没有返回值
+ */
+exports.deleteById = (id, callback) => {
+  const sqlStr = 'DELETE FROM `topics` WHERE `id`=?'
+  db.query(
+    sqlStr,
+    [
+      id
+    ],
+    (err, results) => {
+      if (err) {
+        return callback(err)
+      }
+      callback(null, results)
+    }
+  )
+}
+```
+
+### 处理创建话题服务端
+
+```javascript
+exports.create = (req, res) => {
+  const body = req.body
+  
+  body.userId = req.session.user.id // 话题的作者，就是当前登陆用户
+  body.createdAt = moment().format('YYYY-MM-DD HH:mm:ss') // 话题的创建时间
+
+  Topic.create(body, (err, results) => {
+    if (err) {
+      return res.send({
+        code: 500,
+        message: err.message
+      })
+    }
+    res.send({
+      code: 200,
+      message: '创建话题成功了'
+    })
+  })
+}
+```
+
+---
+
+## 查看话题
+
+---
+
+## 删除话题
+
+---
+
+## 编辑话题
+

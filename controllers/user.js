@@ -45,6 +45,7 @@ exports.signin = (req, res) => {
     // 代码执行到这里，就意味着验证通过，可以登陆了
     
     // TODO：保持登陆状态
+    req.session.user = user
 
     res.send({
       code: 200,
@@ -142,5 +143,9 @@ exports.signup = (req, res) => {
 }
 
 exports.signout = (req, res) => {
-  res.send('signout')
+  // 1. 清除登陆状态
+  delete req.session.user
+  
+  // 2. 跳转到登录页
+  res.redirect('/signin')
 }

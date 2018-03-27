@@ -1,8 +1,30 @@
 const express = require('express')
 const bodyParser = require('body-parser')
 const router = require('./router')
+const session = require('express-session')
+const MySQLStore = require('express-mysql-session')(session)
+
+const options = {
+  host: 'localhost',
+  port: 3306,
+  user: 'root',
+  password: '123456',
+  database: 'ithub'
+}
+ 
+const sessionStore = new MySQLStore(options)
 
 const app = express()
+
+// 配置 Session 插件
+// 只要配置了该插件，则在后续请求的任何处理函数中都可以使用 req.session 来访问或者设置 Session 数据了
+app.use(session({
+  key: "connect.sid", // 配置 Cookie 的名字，默认就是 connect.sid
+  secret: 'keyboard cat',
+  resave: false,
+  saveUninitialized: true,
+  store: sessionStore // 将 Session 数据存储到数据库中（默认是内存存储）
+}))
 
 // 1. 配置模板引擎
 // 2. 渲染页面
