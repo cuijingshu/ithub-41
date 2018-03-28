@@ -2,12 +2,13 @@ const moment = require('moment')
 const connection = require('./db-helper.js')
 const User = require('../models/user')
 const md5 = require('md5')
+const Joi = require('joi')
 
-exports.showSignin = (req, res) => {
+exports.showSignin = (req, res, next) => {
   res.render('signin.html')
 }
 
-exports.signin = (req, res) => {
+exports.signin = (req, res, next) => {
   // 1. 获取表单数据
   // 2. 数据验证
   //    普通数据校验
@@ -17,48 +18,99 @@ exports.signin = (req, res) => {
   const body = req.body
 
   // TODO: 基本数据校验
+  // email, password
+  // Joi.validate(body, { // 基本数据校验
+  //   email: Joi.string().email(),
+  //   password: Joi.string().regex(/^[a-zA-Z0-9]{3,30}$/)
+  // }, (err, value) => {
+  //   if (err) { // 判断客户端发送的数据是否有错误
+  //     return res.send({
+  //       code: 400,
+  //       message: err.details
+  //     })
+  //   }
 
-  User.getByEmail(body.email, (err, user) => {
-    if (err) {
-      return res.send({
-        code: 500,
-        message: err.message
+  //   // 验证通过之后的处理
+  //   User.getByEmail(body.email, (err, user) => {
+  //     if (err) {
+  //       // return res.send({
+  //       //   code: 500,
+  //       //   message: err.message
+  //       // })
+  //       return next(err)
+  //     }
+
+  //     // 如果用户不存在，告诉客户端
+  //     if (!user) {
+  //       return res.send({
+  //         code: 1,
+  //         message: '用户不存在'
+  //       })
+  //     }
+
+  //     // 如果用户存在了，则校验密码
+  //     if (md5(body.password) !== user.password) {
+  //       return res.send({
+  //         code: 2,
+  //         message: '密码不正确'
+  //       })
+  //     }
+
+  //     // 代码执行到这里，就意味着验证通过，可以登陆了
+      
+  //     // TODO：保持登陆状态
+  //     req.session.user = user
+
+  //     res.send({
+  //       code: 200,
+  //       message: '恭喜你，登陆成功'
+  //     })
+  //   })
+  // })
+
+  // 验证通过之后的处理
+    User.getByEmail(body.email, (err, user) => {
+      if (err) {
+        // return res.send({
+        //   code: 500,
+        //   message: err.message
+        // })
+        return next(err)
+      }
+
+      // 如果用户不存在，告诉客户端
+      if (!user) {
+        return res.send({
+          code: 1,
+          message: '用户不存在'
+        })
+      }
+
+      // 如果用户存在了，则校验密码
+      if (md5(body.password) !== user.password) {
+        return res.send({
+          code: 2,
+          message: '密码不正确'
+        })
+      }
+
+      // 代码执行到这里，就意味着验证通过，可以登陆了
+      
+      // TODO：保持登陆状态
+      req.session.user = user
+
+      res.send({
+        code: 200,
+        message: '恭喜你，登陆成功'
       })
-    }
-
-    // 如果用户不存在，告诉客户端
-    if (!user) {
-      return res.send({
-        code: 1,
-        message: '用户不存在'
-      })
-    }
-
-    // 如果用户存在了，则校验密码
-    if (md5(body.password) !== user.password) {
-      return res.send({
-        code: 2,
-        message: '密码不正确'
-      })
-    }
-
-    // 代码执行到这里，就意味着验证通过，可以登陆了
-    
-    // TODO：保持登陆状态
-    req.session.user = user
-
-    res.send({
-      code: 200,
-      message: '恭喜你，登陆成功'
     })
-  })
 }
 
-exports.showSignup = (req, res) => {
+exports.showSignup = (req, res, next) => {
   res.render('signup.html')
 }
 
-exports.signup = (req, res) => {
+exports.signup = (req, res, next) => {
   // 1. 接收获取客户端提交的表单数据
   //    配置 body-parser 插件用来解析获取表单 POST 请求体数据
   const body = req.body
@@ -68,16 +120,29 @@ exports.signup = (req, res) => {
   //    业务数据校验，例如校验用户名是否被占用
   //    这里校验邮箱和昵称是否被占用
 
+  // body
+  // {
+  //    email,
+  //    nickname,
+  //    password
+  // }
+
+
+
   // 校验邮箱是否被占用
   User.getByEmail(
     body.email,
     (err, user) => {
       if (err) {
-        return res.send({
-          code: 500,
-          message: err.message // 把错误对象中的错误消息发送给客户端
-        })
+        // 阻止后续代码继续执行
+        // 也可以使用 if-else 结构，但是不好维护
+        // return res.send({
+        //   code: 500,
+        //   message: err.message // 把错误对象中的错误消息发送给客户端
+        // })
+        return next(err)
       }
+
       if (user) {
         return res.send({
           code: 1,
@@ -90,10 +155,11 @@ exports.signup = (req, res) => {
         body.nickname,
         (err, user) => {
           if (err) {
-            return res.send({
-              code: 500,
-              message: err.message // 把错误对象中的错误消息发送给客户端
-            })
+            // return res.send({
+            //   code: 500,
+            //   message: err.message // 把错误对象中的错误消息发送给客户端
+            // })
+            return next(err)
           }
 
           if (user) {
@@ -117,10 +183,11 @@ exports.signup = (req, res) => {
           User.create(body, (err, results) => {
             if (err) {
               // 服务器异常，通知客户端
-              return res.send({
-                code: 500,
-                message: err.message
-              })
+              // return res.send({
+              //   code: 500,
+              //   message: err.message
+              // })
+              return next(err)
             }
 
 
@@ -142,7 +209,7 @@ exports.signup = (req, res) => {
   )
 }
 
-exports.signout = (req, res) => {
+exports.signout = (req, res, next) => {
   // 1. 清除登陆状态
   delete req.session.user
   

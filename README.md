@@ -787,6 +787,121 @@ exports.create = (req, res) => {
 
 ---
 
+## 配置全局错误处理中间件
+
+在 `app.js` 挂载路由之后添加以下代码：
+
+```javascript
+// ...
+
+app.use(router)
+
+// 一个特殊的中间件：错误处理中间件
+// 一般一个 Express 应用，配一个就够了
+// 作用：全局统一错误处理
+app.use((err, req, res, next) => {
+  res.send({
+    code: 500,
+    message: err.message
+  })
+})
+
+// ...
+```
+
+---
+
+## 配置处理 404 页面
+
+```javascript
+// 挂载路由...
+
+app.use((req, res, next) => {
+  res.render('404.html')
+})
+
+// ...
+```
+
+---
+
+## 使用 `app.locals` 结合中间件挂载公共的模板数据
+
+```javascript
+// 前面的代码略...
+
+// app 有一个 locals 属性对象
+// app.locals 属性对象中的成员可以直接在页面模板中访问
+// 我们可以把一些公共的成员，多个页面都需要的模板成员放到 app.locals 中
+// 我们每个页面都需要session中的user
+// 所以我们就把这个 session 中的 user 添加到 app.locals 中
+// 这个中间件的职责就是往 app.locals 中添加公共的模板成员
+// 注意：一定要在配置 session 中间件之后，和挂载路由之前
+app.use((req, res, next) => {
+  app.locals.sessionUser = req.session.user
+
+  // 千万不要忘记调用 next()，否则请求进来就不往后走了
+  next()
+})
+
+// 后面的代码略...
+```
+
+---
+
+## 演示配置其它第三方中间件
+
+- [morgan](https://github.com/expressjs/morgan) 日志中间件
+- [serve-index](https://github.com/expressjs/serve-index) 处理目录列表中间件
+- [errorhandler](https://github.com/expressjs/errorhandler) 错误处理中间件
+- ...
+- 具体查看官方的中间件资源列表：http://expressjs.com/en/resources/middleware.html
+
+---
+
+## 渲染首页话题列表
+
+`controllers/index.js`:
+
+```javascript
+exports.showIndex = (req, res, next) => {
+  // 读取话题列表，渲染首页
+  Topic.findAll((err, topics) => {
+    if (err) {
+      return next(err)
+    }
+
+    res.render('index.html', {
+      // user: req.session.user, // 把会话用户信息传递到模板中，模板就可以使用当前登陆的用户了
+      topics
+    })
+  })
+}
+```
+
+`views/index.html`:
+
+```html
+<ul class="media-list">
+{{ each topics }}
+<li class="media">
+  <div class="media-left">
+    <!-- 
+      <a href="/topic/1"></a>
+     -->
+    <a href="/topic/{{ $value.id }}">
+        <img width="40" height="40" class="media-object" src="../public/img/avatar-max-img.png" alt="...">
+      </a>
+  </div>
+  <div class="media-body">
+    <h4 class="media-heading"><a href="/topic/{{ $value.id }}">{{ $value.title }}</a></h4>
+    <p>sueysok 回复了问题 • 2 人关注 • 1 个回复 • 187 次浏览 • {{ $value.createdAt }}</p>
+  </div>
+</li>
+{{ /each }}
+</ul>
+```
+
 ## 查看话题
 
 ---

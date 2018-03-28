@@ -35,7 +35,9 @@
       e.preventDefault()
       var formData = $(this).serialize()
       $.post('/topic/create', formData, function (data) {
-        console.log(data)
+        if (data.code === 200) {
+          window.location.href = '/'
+        }
       })
     }
   </script>

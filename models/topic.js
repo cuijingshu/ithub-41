@@ -7,12 +7,28 @@ const db = require('../controllers/db-helper')
  * @return {undefined}            没有返回值
  */
 exports.findAll = callback => {
-  const sqlStr = 'SELECT * FROM `topics`'
+  const sqlStr = 'SELECT * FROM `topics` ORDER BY `createdAt` DESC'
   db.query(sqlStr, (err, results) => {
     if (err) {
       return callback(err)
     }
     callback(null, results)
+  })
+}
+
+/**
+ * 根据id获取一个话题
+ * @param  {Number}   id       话题id
+ * @param  {Function} callback 回调函数
+ * @return {undefined}            没有返回值
+ */
+exports.findById = (id, callback) => {
+  const sqlStr = 'SELECT * FROM `topics` WHERE `id`=?'
+  db.query(sqlStr, [id], (err, results) => {
+    if (err) {
+      return callback(err)
+    }
+    callback(null, results[0])
   })
 }
 
@@ -38,18 +54,19 @@ exports.create = (topic, callback) => {
 
 /**
  * 根据话题id更新话题内容
+ * @param  {Number|String}   id    话题id
  * @param  {Object}   topic    要更新话题对象
  * @param  {Function} callback 回调函数
  * @return {undefined}            没有返回值
  */
-exports.updateById = (topic, callback) => {
+exports.updateById = (id, topic, callback) => {
   const sqlStr = 'UPDATE `topics` SET `title`=?, `content`=? WHERE `id`=?'
   db.query(
     sqlStr,
     [
       topic.title,
       topic.content,
-      topic.id
+      id
     ],
     (err, results) => {
       if (err) {
